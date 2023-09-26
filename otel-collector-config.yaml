@@ -1,0 +1,31 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  logging:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+processors:
+  batch:
+    send_batch_size: 100
+    send_batch_max_size: 1000
+    timeout: 10s
+
+extensions:
+  health_check:
+    endpoint: 127.0.0.1:13133
+
+service:
+  extensions: [ health_check ]
+  pipelines:
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - logging

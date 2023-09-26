@@ -1,0 +1,46 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector:0.85.0
+    restart: always
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+
+  demo-server:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: demo:test
+    container_name: demo-server
+    hostname: demo-server
+    entrypoint:
+      - demo-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:2333/favicon.ico"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - USER=10001
+    depends_on:
+      - otel-collector
+
+  demo-client:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: demo:test
+    container_name: demo-client
+    hostname: demo-client
+    entrypoint:
+      - demo-client
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - DEMO_SERVER_ENDPOINT=demo-server:2333
+      - USER=10001
+    depends_on:
+      demo-server:
+        condition: service_healthy
