@@ -2,7 +2,7 @@
 
 In this demo, client send HTTP request to `/hello/:app_id` or `/bye/:app_id`, and reporting demo_client/request_counts counter metrics with attribute `app_id = ...`. Then server will report demo_server/request_counts counter metrics with attribute `app_id = ...` too.
 
-And the app_id is a fixed list: `"1024", "568", "106", "1025", "197"`
+The app_id is from a fixed list: `"1024", "568", "106", "1025", "197"`, and I'm sure server get the proper app_id value from http path(server logging).
 
 It's really strage that in demo_client/request_counts everything is okay, but `app_id` would be strange string like "con", "247.c", "n.i" in demo_server/request_counts.
 

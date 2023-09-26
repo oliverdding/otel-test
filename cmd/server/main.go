@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gofiber/contrib/fiberzap"
-	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/oliverdding/otel-test/internal/log"
@@ -107,7 +106,6 @@ func main() {
 		Fields:   []string{"time", "method", "path", "status", "respHeader:X-Request-ID", "ip", "port", "ua", "latency"},
 		Levels:   []zapcore.Level{zapcore.WarnLevel},
 	}))
-	app.Use(otelfiber.Middleware())
 
 	requestCount, _ := meter.Int64Counter(
 		"demo_server/request_counts",
