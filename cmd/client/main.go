@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/oliverdding/otel-test/internal/log"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,7 +18,23 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.18.0"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+var (
+	logger *zap.Logger
+)
+
+func init() {
+	var cfg zap.Config
+	cfg = zap.NewDevelopmentConfig()
+
+	// set time format
+	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.DateTime)
+	// add color for console
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger = zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(cfg.EncoderConfig), zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout)), zapcore.DebugLevel))
+}
 
 func preferDeltaTemporalitySelector(kind sdkmetric.InstrumentKind) metricdata.Temporality {
 	switch kind {
@@ -45,7 +60,7 @@ func initProvider(ctx context.Context) func() {
 		),
 	)
 	if err != nil {
-		log.Logger().Fatal("failed to create resource", zap.Error(err))
+		logger.Fatal("failed to create resource", zap.Error(err))
 	}
 
 	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -142,13 +157,13 @@ func makeHelloRequest(ctx context.Context, appID string) {
 	// Make sure we pass the context to the request to avoid broken traces.
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s/hello/%s", demoServerAddr, appID), nil)
 	if err != nil {
-		log.Logger().Fatal("failed to create request", zap.Error(err))
+		logger.Fatal("failed to create request", zap.Error(err))
 	}
 
 	// All requests made with this client will create spans.
 	res, err := client.Do(req)
 	if err != nil {
-		log.Logger().Fatal("failed to execute request", zap.Error(err))
+		logger.Fatal("failed to execute request", zap.Error(err))
 	}
 	res.Body.Close()
 }
@@ -167,13 +182,13 @@ func makeByeRequest(ctx context.Context, appID string) {
 	// Make sure we pass the context to the request to avoid broken traces.
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s/bye/%s", demoServerAddr, appID), nil)
 	if err != nil {
-		log.Logger().Fatal("failed to create request", zap.Error(err))
+		logger.Fatal("failed to create request", zap.Error(err))
 	}
 
 	// All requests made with this client will create spans.
 	res, err := client.Do(req)
 	if err != nil {
-		log.Logger().Fatal("failed to execute request", zap.Error(err))
+		logger.Fatal("failed to execute request", zap.Error(err))
 	}
 	res.Body.Close()
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
-	"github.com/oliverdding/otel-test/internal/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -20,6 +19,21 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+var (
+	logger *zap.Logger
+)
+
+func init() {
+	var cfg zap.Config
+	cfg = zap.NewDevelopmentConfig()
+
+	// set time format
+	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.DateTime)
+	// add color for console
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger = zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(cfg.EncoderConfig), zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout)), zapcore.DebugLevel))
+}
 
 func preferDeltaTemporalitySelector(kind sdkmetric.InstrumentKind) metricdata.Temporality {
 	switch kind {
@@ -45,7 +59,7 @@ func initProvider(ctx context.Context) func() {
 		),
 	)
 	if err != nil {
-		log.Logger().Fatal("failed to create resource", zap.Error(err))
+		logger.Fatal("failed to create resource", zap.Error(err))
 	}
 
 	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -100,7 +114,7 @@ func main() {
 	})
 	app.Use(favicon.New())
 	app.Use(fiberzap.New(fiberzap.Config{
-		Logger:   log.Logger(),
+		Logger:   logger,
 		SkipURIs: []string{"/favicon.ico"},
 		Fields:   []string{"time", "method", "path", "status", "respHeader:X-Request-ID", "ip", "port", "ua", "latency"},
 		Levels:   []zapcore.Level{zapcore.WarnLevel},
@@ -114,7 +128,7 @@ func main() {
 	app.Get("/hello/:app_id", func(c *fiber.Ctx) error {
 		appID := c.Params("app_id")
 
-		log.Logger().Info("hello", zap.String("app_id", appID))
+		logger.Info("hello", zap.String("app_id", appID))
 
 		requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
 
@@ -124,7 +138,7 @@ func main() {
 	app.Get("/bye/:app_id", func(c *fiber.Ctx) error {
 		appID := c.Params("app_id")
 
-		log.Logger().Info("bye", zap.String("app_id", appID))
+		logger.Info("bye", zap.String("app_id", appID))
 
 		requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
 
