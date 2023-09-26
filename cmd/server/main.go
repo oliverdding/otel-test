@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/oliverdding/otel-test/internal/log"
-	"github.com/oliverdding/otel-test/internal/process"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -117,9 +116,6 @@ func main() {
 
 		log.Logger().Info("hello", zap.String("app_id", appID))
 
-		process.SleepWithoutSpan()
-		simulateProcessing()
-		process.SleepWithoutSpan()
 		requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
 
 		return nil
@@ -130,32 +126,10 @@ func main() {
 
 		log.Logger().Info("bye", zap.String("app_id", appID))
 
-		process.SleepWithoutSpan()
-		simulateProcessing()
-		process.SleepWithoutSpan()
 		requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
 
 		return nil
 	})
 
 	app.Listen("0.0.0.0:2333")
-}
-
-func simulateProcessing() {
-	var sleep int64
-
-	switch modulus := time.Now().Unix() % 5; modulus {
-	case 0:
-		sleep = process.RNG.Int63n(2000)
-	case 1:
-		sleep = process.RNG.Int63n(15)
-	case 2:
-		sleep = process.RNG.Int63n(917)
-	case 3:
-		sleep = process.RNG.Int63n(87)
-	case 4:
-		sleep = process.RNG.Int63n(1173)
-	}
-
-	time.Sleep(time.Duration(sleep) * time.Millisecond)
 }

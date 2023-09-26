@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/oliverdding/otel-test/internal/log"
-	"github.com/oliverdding/otel-test/internal/process"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -108,7 +107,6 @@ func main() {
 	for {
 		appID := appIDList[rng.Intn(len(appIDList))]
 		startTime := time.Now()
-		process.SleepWithoutSpan()
 		if rng.Int()%2 == 0 {
 			makeHelloRequest(ctx, appID)
 			latencyMs := float64(time.Since(startTime)) / 1e6
