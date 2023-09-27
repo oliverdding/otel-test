@@ -7,7 +7,6 @@ import (
 
 	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -70,7 +69,6 @@ func initProvider(ctx context.Context) func() {
 		ctx,
 		otlpmetricgrpc.WithInsecure(),
 		otlpmetricgrpc.WithEndpoint(otelAgentAddr),
-		otlpmetricgrpc.WithCompressor("none"),
 		otlpmetricgrpc.WithTemporalitySelector(preferDeltaTemporalitySelector),
 	)
 
@@ -113,7 +111,6 @@ func main() {
 		DisableKeepalive:  true,
 		EnablePrintRoutes: true,
 	})
-	app.Use(favicon.New())
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger:   logger,
 		SkipURIs: []string{"/favicon.ico"},
@@ -122,13 +119,11 @@ func main() {
 	}))
 
 	requestCount, _ = meter.Int64Counter(
-		"demo_server/request_counts",
+		"request_counts",
 		metric.WithDescription("The number of requests received"),
 	)
 
 	app.Get("/hello/:app_id", helloHandler)
-
-	app.Get("/bye/:app_id", byeHandler)
 
 	app.Listen("0.0.0.0:2333")
 }
@@ -138,17 +133,7 @@ func helloHandler(c *fiber.Ctx) error {
 
 	logger.Info("hello", zap.String("app_id", appID))
 
-	requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
-
-	return nil
-}
-
-func byeHandler(c *fiber.Ctx) error {
-	appID := c.Params("app_id")
-
-	logger.Info("bye", zap.String("app_id", appID))
-
-	requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
+	requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("app_id", appID)))
 
 	return nil
 }

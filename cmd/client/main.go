@@ -122,23 +122,13 @@ func main() {
 	for {
 		appID := appIDList[rng.Intn(len(appIDList))]
 		startTime := time.Now()
-		if rng.Int()%2 == 0 {
-			makeHelloRequest(ctx, appID)
-			latencyMs := float64(time.Since(startTime)) / 1e6
-			requestLatency.Record(ctx, latencyMs, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
-			requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
+		makeHelloRequest(ctx, appID)
+		latencyMs := float64(time.Since(startTime)) / 1e6
+		requestLatency.Record(ctx, latencyMs, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
+		requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
 
-			fmt.Printf("Latency: %.3fms\n", latencyMs)
-			time.Sleep(time.Duration(1) * time.Second)
-		} else {
-			makeByeRequest(ctx, appID)
-			latencyMs := float64(time.Since(startTime)) / 1e6
-			requestLatency.Record(ctx, latencyMs, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
-			requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
-
-			fmt.Printf("Latency: %.3fms\n", latencyMs)
-			time.Sleep(time.Duration(1) * time.Second)
-		}
+		fmt.Printf("Latency: %.3fms\n", latencyMs)
+		time.Sleep(time.Duration(1) * time.Second)
 
 	}
 }
@@ -156,31 +146,6 @@ func makeHelloRequest(ctx context.Context, appID string) {
 
 	// Make sure we pass the context to the request to avoid broken traces.
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s/hello/%s", demoServerAddr, appID), nil)
-	if err != nil {
-		logger.Fatal("failed to create request", zap.Error(err))
-	}
-
-	// All requests made with this client will create spans.
-	res, err := client.Do(req)
-	if err != nil {
-		logger.Fatal("failed to execute request", zap.Error(err))
-	}
-	res.Body.Close()
-}
-
-func makeByeRequest(ctx context.Context, appID string) {
-	demoServerAddr, ok := os.LookupEnv("DEMO_SERVER_ENDPOINT")
-	if !ok {
-		demoServerAddr = "0.0.0.0:2333"
-	}
-
-	// Trace an HTTP client by wrapping the transport
-	client := http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-	}
-
-	// Make sure we pass the context to the request to avoid broken traces.
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s/bye/%s", demoServerAddr, appID), nil)
 	if err != nil {
 		logger.Fatal("failed to create request", zap.Error(err))
 	}
