@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"os"
 	"time"
 
-	"github.com/gofiber/contrib/fiberzap"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -53,7 +51,7 @@ func initProvider(ctx context.Context) func() {
 		resource.WithTelemetrySDK(),
 		resource.WithHost(),
 		resource.WithAttributes(
-			semconv.ServiceName("server"),
+			semconv.ServiceName("simple"),
 			semconv.ServiceNamespace("demo"),
 			semconv.ServiceVersion("0.1.0"),
 		),
@@ -70,7 +68,7 @@ func initProvider(ctx context.Context) func() {
 		ctx,
 		otlpmetricgrpc.WithInsecure(),
 		otlpmetricgrpc.WithEndpoint(otelAgentAddr),
-		otlpmetricgrpc.WithCompressor("none"),
+		otlpmetricgrpc.WithCompressor("gzip"),
 		otlpmetricgrpc.WithTemporalitySelector(preferDeltaTemporalitySelector),
 	)
 
@@ -96,8 +94,9 @@ func initProvider(ctx context.Context) func() {
 }
 
 var (
-	meter        metric.Meter
-	requestCount metric.Int64Counter
+	meter     metric.Meter
+	appIDList = []string{"1024", "568", "106", "1025", "197"}
+	rng       = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func main() {
@@ -105,50 +104,19 @@ func main() {
 	otelShutdownHook := initProvider(ctx)
 	defer otelShutdownHook()
 
-	meter = otel.Meter("demo-server")
+	meter = otel.Meter("demo-simple")
 
-	app := fiber.New(fiber.Config{
-		AppName:           "demo-server",
-		CaseSensitive:     true,
-		DisableKeepalive:  true,
-		EnablePrintRoutes: true,
-	})
-	app.Use(favicon.New())
-	app.Use(fiberzap.New(fiberzap.Config{
-		Logger:   logger,
-		SkipURIs: []string{"/favicon.ico"},
-		Fields:   []string{"time", "method", "path", "status", "respHeader:X-Request-ID", "ip", "port", "ua", "latency"},
-		Levels:   []zapcore.Level{zapcore.WarnLevel},
-	}))
-
-	requestCount, _ = meter.Int64Counter(
-		"demo_server/request_counts",
+	requestCount, _ := meter.Int64Counter(
+		"request_counts",
 		metric.WithDescription("The number of requests received"),
 	)
 
-	app.Get("/hello/:app_id", helloHandler)
+	for {
+		appID := appIDList[rng.Intn(len(appIDList))]
 
-	app.Get("/bye/:app_id", byeHandler)
+		logger.Info("reporting metrics", zap.String("app_id", appID))
 
-	app.Listen("0.0.0.0:2333")
-}
-
-func helloHandler(c *fiber.Ctx) error {
-	appID := c.Params("app_id")
-
-	logger.Info("hello", zap.String("app_id", appID))
-
-	requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
-
-	return nil
-}
-
-func byeHandler(c *fiber.Ctx) error {
-	appID := c.Params("app_id")
-
-	logger.Info("bye", zap.String("app_id", appID))
-
-	requestCount.Add(c.UserContext(), 1, metric.WithAttributes(attribute.String("interface", "bye"), attribute.String("app_id", appID)))
-
-	return nil
+		requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("hello", "world"), attribute.String("app_id", appID)))
+		time.Sleep(time.Duration(1) * time.Second)
+	}
 }
