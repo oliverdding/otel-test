@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"math/rand"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -111,12 +113,43 @@ func main() {
 		metric.WithDescription("The number of requests received"),
 	)
 
-	for {
-		appID := appIDList[rng.Intn(len(appIDList))]
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		appID := strings.TrimPrefix(req.URL.Path, "/hello/")
 
-		logger.Info("reporting metrics", zap.String("app_id", appID))
+		logger.Info("hello", zap.String("app_id", appID))
 
-		requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("hello", "world"), attribute.String("app_id", appID)))
-		time.Sleep(time.Duration(10) * time.Millisecond)
+		var sleep int64
+
+		switch modulus := time.Now().Unix() % 5; modulus {
+		case 0:
+			sleep = rng.Int63n(2000)
+		case 1:
+			sleep = rng.Int63n(15)
+		case 2:
+			sleep = rng.Int63n(917)
+		case 3:
+			sleep = rng.Int63n(87)
+		case 4:
+			sleep = rng.Int63n(1173)
+		}
+		time.Sleep(time.Duration(sleep) * time.Millisecond)
+		requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("interface", "hello"), attribute.String("app_id", appID)))
+
+		if _, err := w.Write([]byte("Hello World")); err != nil {
+			http.Error(w, "write operation failed.", http.StatusInternalServerError)
+			return
+		}
+
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/hello/", handler)
+	server := &http.Server{
+		Addr:              ":2333",
+		Handler:           mux,
+		ReadHeaderTimeout: 20 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		logger.Fatal("failed to start server", zap.Error(err))
 	}
 }
